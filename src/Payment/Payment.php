@@ -20,10 +20,10 @@
  */
 namespace EasyWeChat\Payment;
 
-use EasyWeChat\Core\AccessToken;
 use EasyWeChat\Core\Exceptions\FaultException;
 use EasyWeChat\Support\Url as UrlHelper;
 use EasyWeChat\Support\XML;
+use Overtrue\Socialite\AccessTokenInterface;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -116,7 +116,14 @@ class Payment
     }
 
     /**
-     * Gernerate js config for payment.
+     * [WeixinJSBridge] Generate js config for payment.
+     *
+     * <pre>
+     * WeixinJSBridge.invoke(
+     *  'getBrandWCPayRequest',
+     *  ...
+     * );
+     * </pre>
      *
      * @param string $prepayId
      * @param bool   $json
@@ -136,6 +143,27 @@ class Payment
         $params['paySign'] = generate_sign($params, $this->merchant->key, 'md5');
 
         return $json ? json_encode($params) : $params;
+    }
+
+    /**
+     * [JSSDK] Generate js config for payment.
+     *
+     * <pre>
+     * wx.chooseWXPay({...});
+     * </pre>
+     *
+     * @param string $prepayId
+     *
+     * @return array|string
+     */
+    public function configForJSSDKPayment($prepayId)
+    {
+        $config = $this->configForPayment($prepayId, false);
+
+        $config['timestamp'] = $config['timeStamp'];
+        unset($config['timeStamp']);
+
+        return $config;
     }
 
     /**
@@ -164,14 +192,14 @@ class Payment
     /**
      * Generate js config for share user address.
      *
-     * @param string|accessToken $accessToken
-     * @param bool               $json
+     * @param string|\Overtrue\Socialite\AccessTokenInterface $accessToken
+     * @param bool                                            $json
      *
      * @return string|array
      */
     public function configForShareAddress($accessToken, $json = true)
     {
-        if ($accessToken instanceof AccessToken) {
+        if ($accessToken instanceof AccessTokenInterface) {
             $accessToken = $accessToken->getToken();
         }
 
@@ -188,10 +216,12 @@ class Payment
             'url' => UrlHelper::current(),
             'timestamp' => $params['timeStamp'],
             'noncestr' => $params['nonceStr'],
-            'accesstoken' => $accessToken,
+            'accesstoken' => strval($accessToken),
         ];
 
-        $params['addrSign'] = generate_sign($signParams, $this->merchant->key, 'sha1');
+        ksort($signParams);
+
+        $params['addrSign'] = sha1(urldecode(http_build_query($signParams)));
 
         return $json ? json_encode($params) : $params;
     }

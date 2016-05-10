@@ -9,17 +9,17 @@
  * with this source code in the file LICENSE.
  */
 
-use EasyWeChat\Core\AccessToken;
 use EasyWeChat\Core\Exceptions\FaultException;
 use EasyWeChat\Payment\API;
 use EasyWeChat\Payment\Merchant;
 use EasyWeChat\Payment\Notify;
 use EasyWeChat\Payment\Payment;
 use EasyWeChat\Support\XML;
+use Overtrue\Socialite\AccessToken;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class PaymentPaymentTest extends PHPUnit_Framework_TestCase
+class PaymentPaymentTest extends TestCase
 {
     /**
      * Return Payment instance.
@@ -134,6 +134,23 @@ class PaymentPaymentTest extends PHPUnit_Framework_TestCase
     }
 
     /**
+     * test configForPayment.
+     */
+    public function testConfigForJSSDKPayment()
+    {
+        $payment = $this->getPayment();
+
+        $config = $payment->configForJSSDKPayment('prepayId');
+
+        $this->assertEquals('wxTestAppId', $config['appId']);
+        $this->assertEquals('prepay_id=prepayId', $config['package']);
+        $this->assertEquals('MD5', $config['signType']);
+        $this->assertArrayHasKey('timestamp', $config);
+        $this->assertArrayHasKey('nonceStr', $config);
+        $this->assertArrayHasKey('paySign', $config);
+    }
+
+    /**
      * test configForAppPayment.
      */
     public function testConfigForAppPayment()
@@ -169,7 +186,7 @@ class PaymentPaymentTest extends PHPUnit_Framework_TestCase
 
         $log = new stdClass();
         $log->called = false;
-        $accessToken = Mockery::mock(AccessToken::class.'[getToken]', ['foo', 'bar']);
+        $accessToken = Mockery::mock(AccessToken::class.'[getToken]', [['access_token' => 'mockToken']]);
 
         $accessToken->shouldReceive('getToken')->andReturnUsing(function () use ($log) {
                 $log->called = true;

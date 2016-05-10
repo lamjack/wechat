@@ -12,13 +12,13 @@
 /**
  * API.php.
  *
- * @author    tianyong90 <412039588@qq.com>
+ * @author    AC <alexever@gmail.com>
  * @copyright 2015 overtrue <i@overtrue.me>
  *
  * @link      https://github.com/overtrue
  * @link      http://overtrue.me
  */
-namespace EasyWeChat\Payment\LuckyMoney;
+namespace EasyWeChat\Payment\MerchantPay;
 
 use EasyWeChat\Core\AbstractAPI;
 use EasyWeChat\Payment\Merchant;
@@ -39,20 +39,8 @@ class API extends AbstractAPI
     protected $merchant;
 
     // api
-    const API_SEND = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/sendredpack';
-    const API_SEND_GROUP = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/sendgroupredpack';
-    const API_QUERY = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/gethbinfo';
-    const API_PREPARE = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/hbpreorder';
-
-    // LuckyMoney type
-    const TYPE_NORMAL = 'NORMAL';
-    const TYPE_GROUP = 'GROUP';
-
-    // Risk control type.
-    const RISK_NORMAL = 'NORMAL';
-    const RISK_IGN_FREQ_LMT = 'IGN_FREQ_LMT';
-    const RISK_IGN_DAY_LMT = 'IGN_DAY_LMT';
-    const RISK_IGN_FREQ_DAY_LMT = 'IGN_FREQ_DAY_LMT';
+    const API_SEND = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/promotion/transfers';
+    const API_QUERY = 'https://api.mch.weixin.qq.com/mmpaymkttransfers/gettransferinfo';
 
     /**
      * API constructor.
@@ -65,87 +53,39 @@ class API extends AbstractAPI
     }
 
     /**
-     * Prepare luckymoney.
-     *
-     * @param array $params
-     *
-     * @return \EasyWeChat\Support\Collection
-     */
-    public function prepare(array $params)
-    {
-        $params['wxappid'] = $this->merchant->app_id;
-
-        // XXX: PLEASE DON'T CHANGE THE FOLLOWING LINES.
-        $params['auth_mchid'] = '1000052601';
-        $params['auth_appid'] = 'wxbf42bd79c4391863';
-
-        $params['amt_type'] = 'ALL_RAND';
-
-        return $this->request(self::API_PREPARE, $params);
-    }
-
-    /**
-     * Query luckymoney.
+     * Query MerchantPay.
      *
      * @param string $mchBillNo
      *
      * @return \EasyWeChat\Support\Collection
+     *
+     * @notice mch_id when query, but mchid when send
      */
     public function query($mchBillNo)
     {
         $params = [
             'appid' => $this->merchant->app_id,
-            'mch_billno' => $mchBillNo,
-            'bill_type' => 'MCHT',
+            'mch_id' => $this->merchant->merchant_id,
+            'partner_trade_no' => $mchBillNo,
         ];
 
         return $this->request(self::API_QUERY, $params);
     }
 
     /**
-     * Send LuckyMoney.
+     * Send MerchantPay.
      *
      * @param array  $params
      * @param string $type
      *
      * @return \EasyWeChat\Support\Collection
      */
-    public function send(array $params, $type = self::TYPE_NORMAL)
+    public function send(array $params)
     {
-        $api = ($type === self::TYPE_NORMAL) ? self::API_SEND : self::API_SEND_GROUP;
+        $params['mchid'] = $this->merchant->merchant_id;
+        $params['mch_appid'] = $this->merchant->app_id;
 
-        $params['wxappid'] = $this->merchant->app_id;
-
-        return $this->request($api, $params);
-    }
-
-    /**
-     * Send normal LuckyMoney.
-     *
-     * @param array $params
-     *
-     * @return \EasyWeChat\Support\Collection
-     */
-    public function sendNormal($params)
-    {
-        $params['total_num'] = 1;
-        $params['client_ip'] = !empty($params['client_ip']) ? $params['client_ip'] : getenv('SERVER_ADDR');
-
-        return $this->send($params, self::TYPE_NORMAL);
-    }
-
-    /**
-     * Send group luckymoney.
-     *
-     * @param array $params
-     *
-     * @return \EasyWeChat\Support\Collection
-     */
-    public function sendGroup($params)
-    {
-        $params['amt_type'] = 'ALL_RAND';
-
-        return $this->send($params, self::TYPE_GROUP);
+        return $this->request(self::API_SEND, $params);
     }
 
     /**
@@ -182,7 +122,6 @@ class API extends AbstractAPI
     protected function request($api, array $params, $method = 'post')
     {
         $params = array_filter($params);
-        $params['mch_id'] = $this->merchant->merchant_id;
         $params['nonce_str'] = uniqid();
         $params['sign'] = \EasyWeChat\Payment\generate_sign($params, $this->merchant->key, 'md5');
 
